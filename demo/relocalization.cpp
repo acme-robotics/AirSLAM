@@ -2,27 +2,35 @@
 #include <chrono>
 #include <opencv2/opencv.hpp>
 #include <Eigen/Core>
-#include <ros/ros.h>
+#include "ros_shim.h"
 #include <thread>
 
 #include "read_configs.h"
 #include "dataset.h"
 #include "map_user.h"
 
+// Standalone (de-ROS'd) usage:
+//   relocalization <config_path> <model_dir> <map_root> <voc_path> <traj_path> \
+//                  <dataroot> <camera_config_path>
 int main(int argc, char **argv) {
   ros::init(argc, argv, "air_slam");
   ros::NodeHandle nh;
 
-  std::string config_path, model_dir, map_root, voc_path, traj_path;
-  ros::param::get("~config_path", config_path);
-  ros::param::get("~model_dir", model_dir);
-  ros::param::get("~map_root", map_root);
-  ros::param::get("~voc_path", voc_path);
-  ros::param::get("~traj_path", traj_path);
+  if (argc < 8) {
+    std::cout << "usage: relocalization <config_path> <model_dir> <map_root> "
+                 "<voc_path> <traj_path> <dataroot> <camera_config_path>"
+              << std::endl;
+    return 1;
+  }
+  std::string config_path = argv[1];
+  std::string model_dir = argv[2];
+  std::string map_root = argv[3];
+  std::string voc_path = argv[4];
+  std::string traj_path = argv[5];
 
   RelocalizationConfigs configs(config_path, model_dir);
-  ros::param::get("~dataroot", configs.dataroot);
-  ros::param::get("~camera_config_path", configs.camera_config_path);
+  configs.dataroot = argv[6];
+  configs.camera_config_path = argv[7];
 
   MapUser map_user(configs, nh);
   map_user.LoadMap(map_root);

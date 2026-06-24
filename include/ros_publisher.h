@@ -7,19 +7,9 @@
 #include <opencv2/opencv.hpp>
 #include <Eigen/Core>
 
-#include <ros/ros.h>
-#include <cv_bridge/cv_bridge.h>
-#include <geometry_msgs/PoseStamped.h>
-#include <geometry_msgs/PoseArray.h>
-#include <nav_msgs/Path.h>
-#include <nav_msgs/Odometry.h>
-#include <sensor_msgs/PointCloud.h>
-#include <visualization_msgs/Marker.h>
-#include <tf/transform_broadcaster.h>
-
+#include "ros_shim.h"   // de-ROS'd: rviz publishing is a no-op in the standalone build
 #include "utils.h"
 #include "read_configs.h"
-#include "thread_publisher.h"
 
 enum FeatureMessgaeType {
   VOFeature = 0,
@@ -97,6 +87,9 @@ typedef std::shared_ptr<RelocMessage> RelocMessagePtr;
 typedef std::shared_ptr<const RelocMessage> RelocMessageConstPtr;
 
 
+// De-ROS'd publisher: keeps the exact public API the SLAM core calls, but every
+// method is a no-op. Live rviz visualization is dropped in the standalone build;
+// trajectories are still written directly via Map*/Save* paths in the demos.
 class RosPublisher{
 public:
   RosPublisher(const RosPublisherConfig& ros_publisher_config, ros::NodeHandle nh);
@@ -113,44 +106,6 @@ public:
 
 private:
   RosPublisherConfig _config;
-
-  // for publishing features
-  ros::Publisher _ros_feature_pub;
-  ThreadPublisher<FeatureMessgae> _feature_publisher;
-
-  // for publishing frame
-  ros::Publisher _ros_frame_pose_pub;
-  ros::Publisher _pub_latest_odometry;
-  ThreadPublisher<FramePoseMessage> _frame_pose_publisher;
-
-  // for publishing keyframes
-  ros::Publisher _ros_keyframe_pub;
-  ros::Publisher _ros_path_pub;
-  std::map<int, int> _keyframe_id_to_index;
-  geometry_msgs::PoseArray  _ros_keyframe_array;
-  nav_msgs::Path _ros_path;
-  ThreadPublisher<KeyframeMessage> _keyframe_publisher;
-
-  // for publishing mappoints
-  ros::Publisher _ros_map_pub;
-  std::unordered_map<int, int> _mappoint_id_to_index;
-  sensor_msgs::PointCloud _ros_mappoints;
-  ThreadPublisher<MapMessage> _map_publisher;
-
-  // for publishing maplines
-  ros::Publisher _ros_mapline_pub;
-  std::unordered_map<int, int> _mapline_id_to_index;
-  visualization_msgs::Marker _ros_maplines;
-  ThreadPublisher<MapLineMessage> _mapline_publisher;
-
-  // for publishing relocalization results
-  ros::Publisher _ros_reloc_traj_pub;
-  ros::Publisher _ros_reloc_pose_pub;
-  ros::Publisher _ros_reloc_mpts_pub;
-  visualization_msgs::Marker _ros_reloc_traj;
-  ThreadPublisher<RelocMessage> _reloc_traj_publisher;
-  ThreadPublisher<RelocMessage> _reloc_pose_publisher;
-  ThreadPublisher<RelocMessage> _reloc_mpts_publisher;
 };
 typedef std::shared_ptr<RosPublisher> RosPublisherPtr;
 

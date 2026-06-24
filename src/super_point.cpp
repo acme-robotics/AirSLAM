@@ -24,8 +24,8 @@ bool SuperPoint::build() {
     if (!builder) {
         return false;
     }
-    const auto explicit_batch = 1U << static_cast<uint32_t>(nvinfer1::NetworkDefinitionCreationFlag::kEXPLICIT_BATCH);
-    auto network = TensorRTUniquePtr<nvinfer1::INetworkDefinition>(builder->createNetworkV2(explicit_batch));
+    // TensorRT 10: networks are always explicit-batch; the kEXPLICIT_BATCH flag was removed.
+    auto network = TensorRTUniquePtr<nvinfer1::INetworkDefinition>(builder->createNetworkV2(0));
     if (!network) {
         return false;
     }
@@ -115,14 +115,15 @@ bool SuperPoint::infer(const cv::Mat &image_, Eigen::Matrix<float, 259, Eigen::D
     cv::Mat image;
     cv::resize(image_, image, cv::Size(resized_width, resized_height));
 
-    assert(engine_->getNbBindings() == 3);
+    assert(engine_->getNbIOTensors() == 3);
 
-    const int input_index = engine_->getBindingIndex(super_point_config_.input_tensor_names[0].c_str());
-
-    context_->setBindingDimensions(input_index, nvinfer1::Dims4(1, 1, image.rows, image.cols));
+    // TensorRT 10: set the dynamic input shape by name, then size buffers from the
+    // context's resolved tensor shapes.
+    context_->setInputShape(super_point_config_.input_tensor_names[0].c_str(),
+                            nvinfer1::Dims4(1, 1, image.rows, image.cols));
 
     BufferManager buffers(engine_, 0, context_.get());
-    
+
     ASSERT(super_point_config_.input_tensor_names.size() == 1);
     if (!process_input(buffers, image)) {
         return false;
@@ -130,10 +131,16 @@ bool SuperPoint::infer(const cv::Mat &image_, Eigen::Matrix<float, 259, Eigen::D
 
     buffers.copyInputToDevice();
 
-    bool status = context_->executeV2(buffers.getDeviceBindings().data());
+    // TensorRT 10: bind device buffers to the context, then enqueueV3 on the
+    // default stream and synchronize (executeV2 was removed).
+    if (!buffers.setTensorAddresses(context_.get())) {
+        return false;
+    }
+    bool status = context_->enqueueV3(0);
     if (!status) {
         return false;
     }
+    cudaStreamSynchronize(0);
 
     buffers.copyOutputToHost();
     if (!process_output(buffers, features)) {

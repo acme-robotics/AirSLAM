@@ -27,8 +27,8 @@ bool SuperPointLightGlue::build() {
     return false;
   }
 
-  const auto explicit_batch = 1U << static_cast<uint32_t>(nvinfer1::NetworkDefinitionCreationFlag::kEXPLICIT_BATCH);
-  auto network = TensorRTUniquePtr<nvinfer1::INetworkDefinition>(builder->createNetworkV2(explicit_batch));
+  // TensorRT 10: networks are always explicit-batch; the kEXPLICIT_BATCH flag was removed.
+  auto network = TensorRTUniquePtr<nvinfer1::INetworkDefinition>(builder->createNetworkV2(0));
   if (!network) {
     return false;
   }
@@ -126,26 +126,23 @@ bool SuperPointLightGlue::infer(const Eigen::Matrix<float, 258, Eigen::Dynamic> 
     }
   }
 
-  assert(engine_->getNbBindings() == 5);
+  assert(engine_->getNbIOTensors() == 5);
 
-  const int keypoints_0_index = engine_->getBindingIndex(lightglue_config_.input_tensor_names[0].c_str());
-  const int keypoints_1_index = engine_->getBindingIndex(lightglue_config_.input_tensor_names[1].c_str());
-  const int descriptors_0_index = engine_->getBindingIndex(lightglue_config_.input_tensor_names[2].c_str());
-  const int descriptors_1_index = engine_->getBindingIndex(lightglue_config_.input_tensor_names[3].c_str());
-  //    const int scores_index = engine_->getBindingIndex(
-  //            lightglue_config_.output_tensor_names[0].c_str());
+  // TensorRT 10: address tensors by name; set dynamic input shapes then read back.
+  const char* kpts0_name = lightglue_config_.input_tensor_names[0].c_str();
+  const char* kpts1_name = lightglue_config_.input_tensor_names[1].c_str();
+  const char* desc0_name = lightglue_config_.input_tensor_names[2].c_str();
+  const char* desc1_name = lightglue_config_.input_tensor_names[3].c_str();
 
-  context_->setBindingDimensions(keypoints_0_index, nvinfer1::Dims3(1, features0.cols(), 2));
-  context_->setBindingDimensions(keypoints_1_index, nvinfer1::Dims3(1, features1.cols(), 2));
-  context_->setBindingDimensions(descriptors_0_index, nvinfer1::Dims3(1, features0.cols(), 256));
-  context_->setBindingDimensions(descriptors_1_index, nvinfer1::Dims3(1, features1.cols(), 256));
-  //    context_->setBindingDimensions(scores_index, nvinfer1::Dims3(1, features0.cols(), features1.cols()));
+  context_->setInputShape(kpts0_name, nvinfer1::Dims3(1, features0.cols(), 2));
+  context_->setInputShape(kpts1_name, nvinfer1::Dims3(1, features1.cols(), 2));
+  context_->setInputShape(desc0_name, nvinfer1::Dims3(1, features0.cols(), 256));
+  context_->setInputShape(desc1_name, nvinfer1::Dims3(1, features1.cols(), 256));
 
-  keypoints_0_dims_ = context_->getBindingDimensions(keypoints_0_index);
-  keypoints_1_dims_ = context_->getBindingDimensions(keypoints_1_index);
-  descriptors_0_dims_ = context_->getBindingDimensions(descriptors_0_index);
-  descriptors_1_dims_ = context_->getBindingDimensions(descriptors_1_index);
-  //    scores_dims_ = context_->getBindingDimensions(scores_index);
+  keypoints_0_dims_ = context_->getTensorShape(kpts0_name);
+  keypoints_1_dims_ = context_->getTensorShape(kpts1_name);
+  descriptors_0_dims_ = context_->getTensorShape(desc0_name);
+  descriptors_1_dims_ = context_->getTensorShape(desc1_name);
 
   BufferManager buffers(engine_, 0, context_.get());
 
@@ -156,10 +153,14 @@ bool SuperPointLightGlue::infer(const Eigen::Matrix<float, 258, Eigen::Dynamic> 
 
   buffers.copyInputToDevice();
 
-  bool status = context_->executeV2(buffers.getDeviceBindings().data());
+  if (!buffers.setTensorAddresses(context_.get())) {
+    return false;
+  }
+  bool status = context_->enqueueV3(0);
   if (!status) {
     return false;
   }
+  cudaStreamSynchronize(0);
   buffers.copyOutputToHost();
 
   if (!process_output(buffers, matches_index, matches_score)) {

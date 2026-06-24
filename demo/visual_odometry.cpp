@@ -2,25 +2,31 @@
 #include <chrono>
 #include <opencv2/opencv.hpp>
 #include <Eigen/Core>
-#include <ros/ros.h>
+#include "ros_shim.h"
 #include <thread>
 
 #include "read_configs.h"
 #include "dataset.h"
 #include "map_builder.h"
 
+// Standalone (de-ROS'd) usage:
+//   visual_odometry <config_path> <model_dir> <camera_config_path> <dataroot> <saving_dir>
 int main(int argc, char **argv) {
   ros::init(argc, argv, "air_slam");
 
-  std::string config_path, model_dir;
-  ros::param::get("~config_path", config_path);
-  ros::param::get("~model_dir", model_dir);
+  if (argc < 6) {
+    std::cout << "usage: visual_odometry <config_path> <model_dir> "
+                 "<camera_config_path> <dataroot> <saving_dir>" << std::endl;
+    return 1;
+  }
+  std::string config_path = argv[1];
+  std::string model_dir = argv[2];
   VisualOdometryConfigs configs(config_path, model_dir);
   std::cout << "config done" << std::endl;
 
-  ros::param::get("~dataroot", configs.dataroot);
-  ros::param::get("~camera_config_path", configs.camera_config_path);
-  ros::param::get("~saving_dir", configs.saving_dir);
+  configs.camera_config_path = argv[3];
+  configs.dataroot = argv[4];
+  configs.saving_dir = argv[5];
 
   ros::NodeHandle nh;
   MapBuilder map_builder(configs, nh);

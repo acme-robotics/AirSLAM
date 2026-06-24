@@ -166,3 +166,14 @@ IF(G2O_STUFF_LIBRARY AND G2O_CORE_LIBRARY AND G2O_INCLUDE_DIR AND G2O_SOLVERS_FO
     # ${G2O_VIEWER_LIBRARY}
   )
 ENDIF(G2O_STUFF_LIBRARY AND G2O_CORE_LIBRARY AND G2O_INCLUDE_DIR AND G2O_SOLVERS_FOUND)
+
+# n6-orin-patches: our g2o is a minimal build (Eigen/Dense solvers; no SuiteSparse,
+# OpenGL, apps, cli, viewer, interface, ...). Those optional components resolve to
+# "<VAR>-NOTFOUND" and would make the air_slam_lib link fail even though AirSLAM
+# never uses them. Drop any unfound entry so G2O_LIBRARIES holds only real libs.
+# NB: guard with DEFINED, not if(G2O_LIBRARIES) -- the latter evaluates the whole
+# ";"-joined value, which ends in "...-NOTFOUND" and CMake's if() treats any value
+# ending in -NOTFOUND as false, so the filter would be skipped.
+if(DEFINED G2O_LIBRARIES)
+  list(FILTER G2O_LIBRARIES EXCLUDE REGEX "-NOTFOUND$")
+endif()

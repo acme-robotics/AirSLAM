@@ -2,7 +2,7 @@
 #include <chrono>
 #include <opencv2/opencv.hpp>
 #include <Eigen/Core>
-#include <ros/ros.h>
+#include "ros_shim.h"
 #include <thread>
 
 #include "read_configs.h"
@@ -13,18 +13,20 @@
 #include "plnet.h"
 #include "feature_detector.h"
 
+// Standalone (de-ROS'd) usage:
+//   test_feature <camera_config_path> <dataroot> <model_dir> <save_root>
 int main(int argc, char **argv) {
   ros::init(argc, argv, "air_slam");
 
-  // std::string camera_config_path = "/media/code/ubuntu_files/airvio/catkin_ws/src/AirVIO/configs/camera/euroc.yaml";
-  // std::string dataroot = "/media/data/datasets/euroc/seq/MH_01_easy/";
-  // std::string model_dir = "/media/code/ubuntu_files/airvio/catkin_ws/src/AirVIO/output";
-  // std::string save_root = "/media/code/ubuntu_files/airvio/catkin_ws/src/AirVIO/debug/point_detection";
-
-  std::string camera_config_path = "/media/code/ubuntu_files/airvio/catkin_ws/src/AirVIO/configs/camera/tartanair.yaml";
-  std::string dataroot = "/media/bssd/datasets/tartanair/mapping_relocalization/relocalization/abandonedfactory/sequences/P000";
-  std::string model_dir = "/media/code/ubuntu_files/airvio/catkin_ws/src/AirVIO/output";
-  std::string save_root = "/media/code/ubuntu_files/airvio/catkin_ws/src/AirVIO/debug/line_detection";
+  if (argc < 5) {
+    std::cout << "usage: test_feature <camera_config_path> <dataroot> "
+                 "<model_dir> <save_root>" << std::endl;
+    return 1;
+  }
+  std::string camera_config_path = argv[1];
+  std::string dataroot = argv[2];
+  std::string model_dir = argv[3];
+  std::string save_root = argv[4];
 
   MakeDir(save_root);
 

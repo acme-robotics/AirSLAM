@@ -2,33 +2,36 @@
 #include <chrono>
 #include <opencv2/opencv.hpp>
 #include <Eigen/Core>
-#include <ros/ros.h>
+#include "ros_shim.h"
 
 #include "utils.h"
 #include "read_configs.h"
 #include "map.h"
 #include "map_refiner.h"
 
+// Standalone (de-ROS'd) usage:
+//   map_refinement <config_path> <model_dir> <map_root> <voc_path> [breakpoint]
 int main(int argc, char **argv) {
   ros::init(argc, argv, "air_slam");
   ros::NodeHandle nh;
 
-  int breakpoint;
-  ros::param::get("~breakpoint", breakpoint);
+  if (argc < 5) {
+    std::cout << "usage: map_refinement <config_path> <model_dir> <map_root> "
+                 "<voc_path> [breakpoint]" << std::endl;
+    return 1;
+  }
+  int breakpoint = (argc > 5) ? std::atoi(argv[5]) : 0;
 
-  std::string config_path, model_dir;
-  ros::param::get("~config_path", config_path);
-  ros::param::get("~model_dir", model_dir);
+  std::string config_path = argv[1];
+  std::string model_dir = argv[2];
   MapRefinementConfigs configs(config_path, model_dir);
   MapRefiner map_refiner(configs, nh);
 
-  std::string map_root;
-  ros::param::get("~map_root", map_root);
+  std::string map_root = argv[3];
   std::cout << "Loading map and vocabulary..." << std::endl;
   map_refiner.LoadMap(map_root);
 
-  std::string voc_path;
-  ros::param::get("~voc_path", voc_path);
+  std::string voc_path = argv[4];
   map_refiner.LoadVocabulary(voc_path);
   std::cout << "Done." << std::endl;
 

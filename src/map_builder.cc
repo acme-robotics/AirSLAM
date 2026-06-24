@@ -30,8 +30,8 @@ MapBuilder::MapBuilder(VisualOdometryConfigs& configs, ros::NodeHandle nh): _shu
   _ros_publisher = std::shared_ptr<RosPublisher>(new RosPublisher(configs.ros_publisher_config, nh));
   _map = std::shared_ptr<Map>(new Map(_configs.backend_optimization_config, _camera, _ros_publisher));
 
-  _feature_thread = std::thread(boost::bind(&MapBuilder::ExtractFeatureThread, this));
-  _tracking_thread = std::thread(boost::bind(&MapBuilder::TrackingThread, this));
+  _feature_thread = std::thread(&MapBuilder::ExtractFeatureThread, this);
+  _tracking_thread = std::thread(&MapBuilder::TrackingThread, this);
 }
 
 bool MapBuilder::UseIMU(){

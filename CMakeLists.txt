@@ -6,38 +6,30 @@ set(CMAKE_BUILD_TYPE "release")
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 add_definitions(-w)
 
+# Our g2o (airslam-build.sh) is built with its vendored Ceres (G2O_USE_VENDORED_CERES).
+# g2o's installed base_fixed_sized_edge.h gates the ceres include on that macro *before*
+# including g2o/config.h, and our FindG2O module (unlike g2o's own CMake config) doesn't
+# propagate it -- so define it here, else the header falls back to a system <ceres/...>
+# that we don't have. The vendored header ships under $G2O_ROOT/include/g2o/EXTERNAL/.
+add_definitions(-DG2O_USE_VENDORED_CERES)
+
+# --- Standalone (de-ROS'd) build -------------------------------------------------
+# Upstream AirSLAM is a catkin/ROS-Noetic package. This fork (n6-orin-patches)
+# drops the thin ROS layer (param-load -> argv in demo/, ros_publisher -> no-op,
+# rviz dropped) so it builds as a plain CMake project like our other SLAM peers
+# (ORB_SLAM3/SP_SLAM3/DBA-Fusion). gflags/glog are not used by the code and were
+# removed; the only non-system dep we build ourselves is g2o (see airslam-build.sh,
+# installed to $G2O_ROOT, default ~/.local). See AIRSLAM.md.
+
 add_subdirectory(${PROJECT_SOURCE_DIR}/3rdparty/tensorrtbuffer)
 add_subdirectory(${PROJECT_SOURCE_DIR}/3rdparty/DBoW2)
 
-## Find catkin macros and libraries
-## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
-## is used, also find other catkin packages
-find_package(catkin REQUIRED COMPONENTS
-  cv_bridge
-  geometry_msgs
-  image_transport
-  nav_msgs
-  roscpp
-  rospy
-  std_msgs
-  sensor_msgs
-  tf
-)
-
-find_package(OpenCV 4.2 REQUIRED)
+find_package(OpenCV 4 REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(CUDA REQUIRED)
 find_package(yaml-cpp REQUIRED)
-find_package(Boost REQUIRED)
+find_package(Boost REQUIRED COMPONENTS serialization)
 find_package(G2O REQUIRED)
-find_package(Gflags REQUIRED)
-find_package(Glog REQUIRED)
-
-catkin_package(
- INCLUDE_DIRS include
- LIBRARIES ${PROJECT_NAME}_lib
- CATKIN_DEPENDS geometry_msgs image_transport nav_msgs roscpp rospy std_msgs
-)
 
 include_directories(
   ${PROJECT_SOURCE_DIR}
@@ -47,10 +39,7 @@ include_directories(
   ${CUDA_INCLUDE_DIRS}
   ${YAML_CPP_INCLUDE_DIR}
   ${Boost_INCLUDE_DIRS}
-  ${catkin_INCLUDE_DIRS}
   ${G2O_INCLUDE_DIR}
-  ${GFLAGS_INCLUDE_DIRS} 
-  ${GLOG_INCLUDE_DIRS}
 )
 
 add_library(${PROJECT_NAME}_lib SHARED
@@ -94,22 +83,19 @@ target_link_libraries(${PROJECT_NAME}_lib
   ${CUDA_LIBRARIES}
   ${Boost_LIBRARIES}
   ${G2O_LIBRARIES}
-  ${GFLAGS_LIBRARIES} 
-  ${GLOG_LIBRARIES}
   yaml-cpp
   tensorrtbuffer
   DBoW2
-  -lboost_serialization
 )
 
 add_executable(visual_odometry demo/visual_odometry.cpp)
-target_link_libraries(visual_odometry ${PROJECT_NAME}_lib ${catkin_LIBRARIES})
+target_link_libraries(visual_odometry ${PROJECT_NAME}_lib)
 
 add_executable(map_refinement demo/map_refinement.cpp)
-target_link_libraries(map_refinement ${PROJECT_NAME}_lib ${catkin_LIBRARIES})
+target_link_libraries(map_refinement ${PROJECT_NAME}_lib)
 
 add_executable(relocalization demo/relocalization.cpp)
-target_link_libraries(relocalization ${PROJECT_NAME}_lib ${catkin_LIBRARIES})
+target_link_libraries(relocalization ${PROJECT_NAME}_lib)
 
 add_executable(test_feature demo/test_feature.cpp)
-target_link_libraries(test_feature ${PROJECT_NAME}_lib ${catkin_LIBRARIES})
+target_link_libraries(test_feature ${PROJECT_NAME}_lib)

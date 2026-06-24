@@ -6,7 +6,8 @@
 #include <Eigen/SparseCore>
 #include <opencv2/opencv.hpp>
 #include <opencv2/imgproc.hpp>
-#include <opencv2/ximgproc.hpp>
+// opencv2/ximgproc.hpp (opencv-contrib) dropped: no ximgproc:: symbol is used
+// anywhere (lines come from PLNet), and JetPack's OpenCV 4.8 ships no contrib headers.
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/highgui.hpp>
 

@@ -96,7 +96,7 @@ void MapUser::LoadMap(const std::string& map_root){
 
   _reloc_message->map_scale = _map->MapScale() / 80;
   
-  _visualization_thread = std::thread(boost::bind(&MapUser::PubMap, this));
+  _visualization_thread = std::thread(&MapUser::PubMap, this);
 }
   
 void MapUser::LoadVocabulary(const std::string voc_path){

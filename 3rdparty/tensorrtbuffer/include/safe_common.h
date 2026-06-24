@@ -110,7 +110,9 @@ namespace tensorrt_buffer
     {
         if (vecDim >= 0)
         {
-            dims.d[vecDim] = roundUp(dims.d[vecDim], comps);
+            // TensorRT 10: Dims::d is int64_t (was int32_t in TRT 8), so roundUp's
+            // template can't deduce a single T from (int64_t, int32_t). Widen comps.
+            dims.d[vecDim] = roundUp(dims.d[vecDim], static_cast<int64_t>(comps));
         }
         return tensorrt_buffer::volume(dims) * std::max(batch, 1);
     }

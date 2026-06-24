@@ -28,7 +28,7 @@ MapRefiner::MapRefiner(MapRefinementConfigs& configs, ros::NodeHandle nh): odome
     _configs(configs), _stop(false), _stopped(false), _map_ready(false){
   _point_matcher = std::shared_ptr<PointMatcher>(new PointMatcher(configs.point_matcher_config));
   _ros_publisher = std::shared_ptr<RosPublisher>(new RosPublisher(configs.ros_publisher_config, nh));
-  _visualization_thread = std::thread(boost::bind(&MapRefiner::PubMap, this));
+  _visualization_thread = std::thread(&MapRefiner::PubMap, this);
 }
 
 void MapRefiner::LoadMap(const std::string& map_root){
